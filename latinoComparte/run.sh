@@ -33,4 +33,4 @@ echo ""
 echo "✅ Iniciando aplicación..."
 echo "🌐 Accede a: http://localhost:8501"
 echo ""
-streamlit run src/app.py
+streamlit run src/latinoamerica_comparte.py
