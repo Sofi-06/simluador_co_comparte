@@ -63,233 +63,28 @@ def get_analytics_logo_html(max_width: int = 70) -> str:
 
 # ── Estilos ───────────────────────────────────────────────────────────────────
 def inject_styles() -> None:
-    st.markdown(
-        """
-        <style>
-        :root {
-            --bg-dark: #121212;
-            --bg-card: rgba(30, 30, 30, 0.6);
-            --bg-hover: rgba(45, 45, 45, 0.8);
-            --text-primary: #ffffff;
-            --text-secondary: #a1a1aa;
-            --accent: #4cc9f0; /* Cyan */
-            --accent-light: #f72585; /* Pink/Red */
-            --accent-glow: rgba(76, 201, 240, 0.2);
-            --accent-dark: #3a0ca3; /* Deep Blue */
-            --success: #10b981;
-            --warning: #f59e0b;
-            --danger: #ef4444;
-            --border: rgba(255, 255, 255, 0.08);
-            --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.4);
-            --shadow-md: 0 8px 32px rgba(0, 0, 0, 0.5);
-        }
-        .stApp {
-            background: radial-gradient(circle at 80% 0%, rgba(247, 37, 133, 0.05) 0%, transparent 40%), 
-                        radial-gradient(circle at 20% 100%, rgba(76, 201, 240, 0.05) 0%, transparent 40%),
-                        #121212;
-            color: var(--text-primary);
-            font-family: 'Inter', sans-serif;
-        }
-        section[data-testid="stSidebar"] {
-            background: #18181b;
-            border-right: 1px solid var(--border);
-        }
-        section[data-testid="stSidebar"] * {
-            color: #d4d4d8 !important;
-        }
-        .logo-banner {
-            text-align: center;
-            padding: 16px 0;
-            margin-bottom: 16px;
-            border-bottom: 1px solid var(--border);
-        }
-        .hero-banner {
-            background: var(--bg-card);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--border);
-            border-radius: 24px;
-            padding: 12px 16px;
-            margin-bottom: 16px;
-            box-shadow: var(--shadow-md);
-            position: relative;
-            overflow: hidden;
-        }
-        .hero-title {
-            font-size: 2.2rem;
-            font-weight: 800;
-            color: #ffffff;
-            margin: 0 0 10px 0;
-            letter-spacing: -0.02em;
-            position: relative;
-            z-index: 1;
-        }
-        .hero-title::before {
-            content: '';
-            display: block;
-            width: 40px; height: 4px;
-            background: linear-gradient(90deg, var(--accent) 0%, var(--accent-light) 100%);
-            border-radius: 2px;
-            margin-bottom: 12px;
-        }
-        .hero-subtitle {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            line-height: 1.7;
-            margin: 0;
-            position: relative;
-            z-index: 1;
-            font-weight: 400;
-        }
-        .kpi-grid {
-            display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 16px;
-            margin: 24px 0 0 0;
-            position: relative;
-            z-index: 1;
-        }
-        .kpi-card {
-            background: rgba(40, 40, 40, 0.4);
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            border-radius: 12px;
-            padding: 10px 12px;
-            text-align: center;
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        .kpi-card:hover {
-            background: rgba(60, 60, 60, 0.5);
-            border-color: rgba(255, 255, 255, 0.15);
-            transform: translateY(-4px);
-            box-shadow: 0 10px 24px rgba(0,0,0,0.4);
-        }
-        .kpi-label {
-            color: var(--text-secondary);
-            font-size: 0.65rem;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 4px;
-            font-weight: 600;
-        }
-        .kpi-value {
-            color: #ffffff;
-            font-size: 1.3rem;
-            font-weight: 800;
-            margin: 0;
-        }
-        .section-title {
-            font-size: 1.35rem;
-            font-weight: 800;
-            color: var(--text-primary);
-            margin: 0 0 4px 0;
-            letter-spacing: -0.01em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .section-title::before {
-            content: '';
-            width: 3px; height: 24px;
-            background: linear-gradient(180deg, var(--accent), transparent);
-            border-radius: 2px;
-        }
-        .panel-card {
-            background: var(--bg-card);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 24px;
-            box-shadow: var(--shadow-sm);
-            transition: all 0.3s ease;
-            position: relative;
-        }
-        .panel-card:hover {
-            box-shadow: var(--shadow-md);
-            border-color: rgba(255, 255, 255, 0.12);
-        }
-        .section-copy {
-            color: var(--text-secondary);
-            line-height: 1.8;
-            font-size: 0.95rem;
-            margin: 0;
-        }
-        .success-card { border-left: 4px solid var(--success); }
-        .warning-card { border-left: 4px solid var(--warning); }
-        .error-card { border-left: 4px solid var(--danger); }
-        .alert-title {
-            color: var(--text-primary);
-            font-weight: 700;
-            font-size: 0.95rem;
-            margin: 0 0 8px 0;
-        }
-        .alert-copy {
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            line-height: 1.8;
-            margin: 0;
-        }
-        .stTabs [data-baseweb="tab-list"] {
-            gap: 8px;
-            background: transparent;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-        }
-        .stTabs [data-baseweb="tab"] {
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            border-radius: 0;
-            padding: 12px 20px;
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-            transition: all 0.2s ease;
-            font-weight: 600;
-        }
-        .stTabs [data-baseweb="tab"]:hover {
-            color: var(--text-primary);
-            background: transparent;
-        }
-        .stTabs [aria-selected="true"] {
-            background: transparent;
-            border-bottom: 2px solid var(--accent);
-            color: var(--text-primary);
-        }
-        .stButton button {
-            background: linear-gradient(135deg, #18181b 0%, #27272a 100%);
-            color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
-            font-weight: 600;
-            font-size: 1rem;
-            width: 100%;
-            padding: 0.8rem 1.2rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            transition: all 0.3s ease;
-        }
-        .stButton button:hover {
-            transform: translateY(-2px);
-            border-color: var(--accent);
-            box-shadow: 0 8px 20px rgba(76, 201, 240, 0.2);
-            background: linear-gradient(135deg, #27272a 0%, #3f3f46 100%);
-        }
-        div[data-testid="stMetric"] {
-            background: var(--bg-card);
-            border: 1px solid var(--border);
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: var(--shadow-sm);
-        }
-        .stMetric [data-testid="stMetricValue"] {
-            color: #ffffff;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+    css_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'styles.css')
+    assets_css = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'styles.css')
+    try:
+        if os.path.exists(css_path):
+            with open(css_path, 'r', encoding='utf-8') as f:
+                css = f.read()
+            st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+            return
+        # fallback to assets/styles.css if present
+        with open(assets_css, 'r', encoding='utf-8') as f:
+            css = f.read()
+        st.markdown(f"<style>{css}</style>", unsafe_allow_html=True)
+    except FileNotFoundError:
+        # Minimal fallback to avoid breaking layout
+        st.markdown(
+            """
+            <style>
+            .stApp { background: #121212; color: #ffffff; }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
 
 # ── Datos del modelo ──────────────────────────────────────────────────────────
@@ -554,6 +349,27 @@ def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, titl
     return fig
 
 
+def build_transition_matrices_from_visits(df_visitas: pd.DataFrame, assets: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    estados = assets["estados"]
+    matriz_conteos = pd.DataFrame(0, index=estados, columns=estados)
+
+    if df_visitas.empty:
+        matriz_probabilidades = matriz_conteos.astype(float)
+        return matriz_conteos, matriz_probabilidades
+
+    df_visits_sorted = df_visitas.sort_values(["usuario", "orden"])
+    for _, group in df_visits_sorted.groupby("usuario"):
+        seq = list(group["estado"])
+        for i in range(len(seq) - 1):
+            src = seq[i]
+            dst = seq[i + 1]
+            if src in matriz_conteos.index and dst in matriz_conteos.columns:
+                matriz_conteos.loc[src, dst] += 1
+
+    matriz_probabilidades = matriz_conteos.div(matriz_conteos.sum(axis=1), axis=0).fillna(0)
+    return matriz_conteos, matriz_probabilidades
+
+
 def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, title: str = "Grafo de Recorridos Observados") -> go.Figure:
     # Build counts of transitions from visits
     df_visits_sorted = df_visitas.sort_values(['usuario','orden'])
@@ -767,8 +583,10 @@ def generate_critical_state_recommendation(
 # ── Hero banner ───────────────────────────────────────────────────────────────
 def hero_section(summary: dict, assets: dict, usuarios: int) -> None:
     num_estados  = len(assets["estados"])
-    success_rate = summary["success_rate"]
-    error_rate   = summary["error_rate"]
+    # Mostrar métricas ponderadas en el banner principal
+    weighted = summary.get("weighted", {"Éxito": 0.0, "Error": 0.0, "Abandono": 0.0})
+    success_rate = weighted.get("Éxito", 0.0)
+    error_rate   = weighted.get("Error", 0.0)
     avg_steps    = summary["avg_steps"]
     analytics_logo = get_analytics_logo_html(max_width=70)
 
@@ -786,12 +604,12 @@ def hero_section(summary: dict, assets: dict, usuarios: int) -> None:
                         <div class="kpi-value">{usuarios}</div>
                     </div>
                     <div class="kpi-card" style="flex:1;min-width:100px;">
-                        <div class="kpi-label" style="color:#10b981;">Éxito</div>
-                        <div class="kpi-value" style="color:#10b981;">{success_rate:.0f}%</div>
+                        <div class="kpi-label" style="color:#10b981;">Éxito (Ponderado)</div>
+                            <div class="kpi-value" style="color:#10b981;">{success_rate:.1f}%</div>
                     </div>
                     <div class="kpi-card" style="flex:1;min-width:100px;">
-                        <div class="kpi-label" style="color:#ef4444;">Error</div>
-                        <div class="kpi-value" style="color:#ef4444;">{error_rate:.0f}%</div>
+                        <div class="kpi-label" style="color:#ef4444;">Error (Ponderado)</div>
+                        <div class="kpi-value" style="color:#ef4444;">{error_rate:.1f}%</div>
                     </div>
                     <div class="kpi-card" style="flex:1;min-width:100px;">
                         <div class="kpi-label" style="color:#4cc9f0;">Prom. Pasos</div>
@@ -939,6 +757,10 @@ def render_dashboard(
     sim_params: dict,
 ) -> None:
     summary = compute_summary(df_resultados, df_visitas, assets)
+    matrix_counts, matrix_probabilities = build_transition_matrices_from_visits(df_visitas, assets)
+    if matrix_counts.values.sum() == 0:
+        matrix_counts = assets["matriz_conteos"]
+        matrix_probabilities = assets["matriz_probabilidades"]
     hero_section(summary, assets, sim_params["usuarios"])
 
     tabs = st.tabs([
@@ -964,9 +786,11 @@ def render_dashboard(
                 unsafe_allow_html=True,
             )
             cm1, cm2, cm3 = st.columns(3)
-            cm1.metric("Éxito",    f"{summary['success_rate']:.0f}%")
-            cm2.metric("Error",    f"{summary['error_rate']:.0f}%")
-            cm3.metric("Abandono", f"{summary['abandonment_rate']:.0f}%")
+            # Mostrar KPIs alineados a la distribución ponderada
+            w = summary.get("weighted", {"Éxito": 0.0, "Error": 0.0, "Abandono": 0.0})
+            cm1.metric("Éxito (Ponderado)",    f"{w['Éxito']:.1f}%")
+            cm2.metric("Error (Ponderado)",    f"{w['Error']:.1f}%")
+            cm3.metric("Abandono (Ponderado)", f"{w['Abandono']:.1f}%")
 
             weighted_df = pd.DataFrame({
                 "Categoría": list(summary["weighted"].keys()),
@@ -1041,13 +865,13 @@ def render_dashboard(
         ]
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         st.markdown("")
-        st.markdown("**Grafo de Estados (probabilidades de transición)**")
-        fig_states = build_transition_figure_from_matrix(assets["matriz_probabilidades"], assets, title="Grafo de Probabilidades")
+        st.markdown("**Grafo de Estados Observados (simulación actual)**")
+        fig_states = build_transition_figure_from_matrix(matrix_probabilities, assets, title="Grafo de Probabilidades Observadas")
         st.plotly_chart(fig_states, use_container_width=True)
 
         st.markdown("")
         estado_sel = st.selectbox("Ver probabilidades de salida", assets["estados"], format_func=lambda s: f"{s} - {assets['nombres_estados'][s]}")
-        probs = assets["matriz_probabilidades"].loc[estado_sel]
+        probs = matrix_probabilities.loc[estado_sel]
         probs_df = probs[probs > 0].reset_index()
         probs_df.columns = ["Destino","Probabilidad"]
         st.dataframe(probs_df, use_container_width=True, hide_index=True)
@@ -1062,18 +886,18 @@ def render_dashboard(
             """
             <div class="panel-card">
                 <div class="section-title">Matriz de Frecuencias de Transición</div>
-                <div class="section-copy">Conteo absoluto de transiciones observadas entre estados.</div>
+                <div class="section-copy">Conteo absoluto de transiciones observadas en la simulación activa.</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
         st.markdown("")
         fig_c = go.Figure(data=go.Heatmap(
-            z=assets["matriz_conteos"].values,
-            x=assets["matriz_conteos"].columns,
-            y=assets["matriz_conteos"].index,
+            z=matrix_counts.values,
+            x=matrix_counts.columns,
+            y=matrix_counts.index,
             colorscale=[[0,"#1e1e2d"],[0.2,"#27293d"],[0.45,"#5e0075"],[0.7,"#bc00dd"],[1,"#ff007f"]],
-            text=assets["matriz_conteos"].astype(int).values,
+            text=matrix_counts.astype(int).values,
             texttemplate="%{text}",
             hovertemplate="Desde: %{y}<br>Hacia: %{x}<br>Frecuencia: %{z}<extra></extra>",
         ))
@@ -1085,9 +909,9 @@ def render_dashboard(
         )
         st.plotly_chart(fig_c, use_container_width=True)
         cc1, cc2, cc3 = st.columns(3)
-        cc1.metric("Total Transiciones",  int(assets["matriz_conteos"].sum().sum()))
-        cc2.metric("Transiciones Únicas", int((assets["matriz_conteos"] > 0).sum().sum()))
-        cc3.metric("Máxima Frecuencia",   int(assets["matriz_conteos"].max().max()))
+        cc1.metric("Total Transiciones",  int(matrix_counts.sum().sum()))
+        cc2.metric("Transiciones Únicas", int((matrix_counts > 0).sum().sum()))
+        cc3.metric("Máxima Frecuencia",   int(matrix_counts.max().max()))
 
     # ── TAB 3 ─────────────────────────────────────────────────────────────────
     with tabs[3]:
@@ -1095,18 +919,18 @@ def render_dashboard(
             """
             <div class="panel-card">
                 <div class="section-title">Matriz de Probabilidades de Márkov</div>
-                <div class="section-copy">Probabilidades normalizadas de transición (suma por fila = 100%).</div>
+                <div class="section-copy">Probabilidades normalizadas de transición de la simulación activa.</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
         st.markdown("")
         fig_p = go.Figure(data=go.Heatmap(
-            z=(assets["matriz_probabilidades"].values * 100).round(2),
-            x=assets["matriz_probabilidades"].columns,
-            y=assets["matriz_probabilidades"].index,
+            z=(matrix_probabilities.values * 100).round(2),
+            x=matrix_probabilities.columns,
+            y=matrix_probabilities.index,
             colorscale=[[0,"#1e1e2d"],[0.2,"#27293d"],[0.45,"#5e0075"],[0.7,"#bc00dd"],[1,"#ff007f"]],
-            text=np.round(assets["matriz_probabilidades"].values * 100, 1),
+            text=np.round(matrix_probabilities.values * 100, 1),
             texttemplate="%{text:.1f}%",
             hovertemplate="Desde: %{y}<br>Hacia: %{x}<br>Prob: %{z:.1f}%<extra></extra>",
         ))
@@ -1243,12 +1067,11 @@ def render_dashboard(
             st.plotly_chart(fig_states, use_container_width=True)
 
         with col_b:
-            sr = summary['success_rate']
-            er = summary['error_rate']
-            ar = summary['abandonment_rate']
-            st.metric('Éxito', f"{sr:.1f}%")
-            st.metric('Error', f"{er:.1f}%")
-            st.metric('Abandono', f"{ar:.1f}%")
+            # Mostrar KPIs ponderados en la vista de simulación ejecutada
+            w = summary.get('weighted', {"Éxito": 0.0, "Error": 0.0, "Abandono": 0.0})
+            st.metric('Éxito (Ponderado)', f"{w['Éxito']:.1f}%")
+            st.metric('Error (Ponderado)', f"{w['Error']:.1f}%")
+            st.metric('Abandono (Ponderado)', f"{w['Abandono']:.1f}%")
 
             df_cat = df_resultados['categoria_final'].value_counts().reset_index()
             df_cat.columns = ['Categoría','Usuarios']
