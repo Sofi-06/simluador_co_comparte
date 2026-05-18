@@ -9,6 +9,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit.components.v1 import html
 from PIL import Image
 
 # ── Configuración general ─────────────────────────────────────────────────────
@@ -85,6 +86,37 @@ def inject_styles() -> None:
             """,
             unsafe_allow_html=True,
         )
+
+
+def focus_active_tab() -> None:
+    active_tab = st.session_state.get("active_tab")
+    if active_tab != "Simulación":
+        return
+
+    html(
+        """
+        <script>
+        const activateTab = () => {
+            const parentDoc = window.parent.document;
+            const tabs = parentDoc.querySelectorAll('.stTabs [data-baseweb="tab"]');
+            const target = Array.from(tabs).find((tab) =>
+                tab.textContent && tab.textContent.trim() === 'Simulación'
+            );
+            if (target) {
+                target.click();
+            }
+        };
+
+        window.addEventListener('load', () => {
+            setTimeout(activateTab, 0);
+            setTimeout(activateTab, 150);
+            setTimeout(activateTab, 400);
+        });
+        </script>
+        """,
+        height=0,
+    )
+    st.session_state.pop("active_tab", None)
 
 
 # ── Datos del modelo ──────────────────────────────────────────────────────────
@@ -298,7 +330,7 @@ def state_type(state_code: str, assets: dict) -> str:
     return "Intermedio"
 
 
-def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, title: str = "Grafo de Transiciones") -> go.Figure:
+def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, title: str = "Grafo de Transiciones", show_codes: bool = False) -> go.Figure:
     G = nx.DiGraph()
     for src in matriz.index:
         for dst in matriz.columns:
@@ -321,13 +353,15 @@ def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, titl
         mode='lines'
     )
 
-    node_x, node_y, node_text, node_color = [], [], [], []
+    node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
     for n in G.nodes():
         x, y = pos[n]
         node_x.append(x)
         node_y.append(y)
         name = assets['nombres_estados'].get(n, n)
-        node_text.append(f"{n} - {name}")
+        label = n if show_codes else f"{n} - {name}"
+        node_text.append(label)
+        node_hover.append(f"{n} - {name}")
         if n in assets['critical_states']:
             node_color.append('#f72585')
         elif n in assets['estados_finales']:
@@ -341,6 +375,7 @@ def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, titl
         hoverinfo='text',
         textposition='top center',
         text=node_text,
+        hovertext=node_hover,
         marker=dict(color=node_color, size=22, line_width=1, line=dict(color='rgba(255,255,255,0.2)', width=1))
     )
 
@@ -370,7 +405,7 @@ def build_transition_matrices_from_visits(df_visitas: pd.DataFrame, assets: dict
     return matriz_conteos, matriz_probabilidades
 
 
-def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, title: str = "Grafo de Recorridos Observados") -> go.Figure:
+def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, title: str = "Grafo de Recorridos Observados", show_codes: bool = False) -> go.Figure:
     # Build counts of transitions from visits
     df_visits_sorted = df_visitas.sort_values(['usuario','orden'])
     edges = Counter()
@@ -401,13 +436,15 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
         mode='lines'
     )
 
-    node_x, node_y, node_text, node_color = [], [], [], []
+    node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
     for n in G.nodes():
         x, y = pos[n]
         node_x.append(x)
         node_y.append(y)
         name = assets['nombres_estados'].get(n, n)
-        node_text.append(f"{n} - {name}")
+        label = n if show_codes else f"{n} - {name}"
+        node_text.append(label)
+        node_hover.append(f"{n} - {name}")
         if n in assets['critical_states']:
             node_color.append('#f72585')
         elif n in assets['estados_finales']:
@@ -421,6 +458,7 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
         hoverinfo='text',
         textposition='top center',
         text=node_text,
+        hovertext=node_hover,
         marker=dict(color=node_color, size=20, line_width=1, line=dict(color='rgba(255,255,255,0.2)', width=1))
     )
 
@@ -660,7 +698,7 @@ def render_sidebar(assets: dict) -> tuple:
 
         # Previsualizacion rápida
         previsualizar = st.button("Previsualizar", use_container_width=True)
-        use_preview = st.checkbox("Usar previsualización en dashboard", value=False)
+        show_codes = st.checkbox("Mostrar solo códigos en grafos", value=True)
 
         if previsualizar:
             preview_count = min(200, max(5, int(num_usuarios)))
@@ -668,14 +706,17 @@ def render_sidebar(assets: dict) -> tuple:
             st.session_state["df_resultados_preview"] = df_r
             st.session_state["df_visitas_preview"] = df_v
             st.session_state["sim_preview_params"] = {"usuarios": preview_count, "max_pasos": max_pasos, "estado_inicial": estado_inicial}
-            st.info(f"Previsualización generada: {preview_count} usuarios")
+            # activar preview como vista en dashboard y mover al tab "Simulación"
+            st.session_state['use_preview_for_dashboard'] = True
+            st.session_state['active_tab'] = 'Simulación'
+            st.rerun()
 
         if resetear:
-            for key in ("df_resultados","df_visitas","sim_params","sim_before","df_resultados_preview","df_visitas_preview","sim_preview_params"):
+            for key in ("df_resultados","df_visitas","sim_params","sim_before","df_resultados_preview","df_visitas_preview","sim_preview_params","use_preview_for_dashboard"):
                 st.session_state.pop(key, None)
             st.rerun()
 
-    return num_usuarios, max_pasos, estado_inicial, iniciar, previsualizar, use_preview
+    return num_usuarios, max_pasos, estado_inicial, iniciar, previsualizar, show_codes
 
 
 # ── Simulacion con progreso ───────────────────────────────────────────────────
@@ -755,6 +796,7 @@ def render_dashboard(
     df_resultados: pd.DataFrame,
     df_visitas: pd.DataFrame,
     sim_params: dict,
+    show_codes: bool = True,
 ) -> None:
     summary = compute_summary(df_resultados, df_visitas, assets)
     matrix_counts, matrix_probabilities = build_transition_matrices_from_visits(df_visitas, assets)
@@ -768,6 +810,7 @@ def render_dashboard(
         "Matriz Probabilidades", "Recorridos", "Resultados",
         "Simulación", "Simulador de Mejoras", "Comparación",
     ])
+    focus_active_tab()
 
     # ── TAB 0 ─────────────────────────────────────────────────────────────────
     with tabs[0]:
@@ -866,7 +909,7 @@ def render_dashboard(
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         st.markdown("")
         st.markdown("**Grafo de Estados Observados (simulación actual)**")
-        fig_states = build_transition_figure_from_matrix(matrix_probabilities, assets, title="Grafo de Probabilidades Observadas")
+        fig_states = build_transition_figure_from_matrix(matrix_probabilities, assets, title="Grafo de Probabilidades Observadas", show_codes=show_codes)
         st.plotly_chart(fig_states, use_container_width=True)
 
         st.markdown("")
@@ -975,7 +1018,7 @@ def render_dashboard(
         st.dataframe(df_model_filtered[['id','recorrido_codigos','recorrido_nombres','longitud']], use_container_width=True, hide_index=True)
 
         if st.button("Ver grafos de recorridos", use_container_width=True):
-            fig_g = build_transition_figure_from_visits(df_visitas, assets, title="Grafo: Recorridos Observados")
+            fig_g = build_transition_figure_from_visits(df_visitas, assets, title="Grafo: Recorridos Observados", show_codes=show_codes)
             with st.expander("Grafo de Recorridos", expanded=True):
                 if fig_g and getattr(fig_g, 'data', None):
                     st.plotly_chart(fig_g, use_container_width=True)
@@ -1372,7 +1415,7 @@ def main() -> None:
     assets = load_markov_assets()
     initial_state(assets)
 
-    num_usuarios, max_pasos, estado_inicial, iniciar, previsualizar, use_preview = render_sidebar(assets)
+    num_usuarios, max_pasos, estado_inicial, iniciar, _, show_codes = render_sidebar(assets)
 
     if iniciar:
         with st.spinner("Ejecutando simulación..."):
@@ -1381,7 +1424,7 @@ def main() -> None:
         st.rerun()
 
     # Decide whether to use preview results or the full simulation
-    if use_preview and "df_resultados_preview" in st.session_state:
+    if st.session_state.get('use_preview_for_dashboard') and "df_resultados_preview" in st.session_state:
         df_resultados = st.session_state["df_resultados_preview"]
         df_visitas    = st.session_state["df_visitas_preview"]
         sim_params    = st.session_state.get("sim_preview_params", {})
@@ -1389,7 +1432,7 @@ def main() -> None:
         df_resultados = st.session_state["df_resultados"]
         df_visitas    = st.session_state["df_visitas"]
         sim_params    = st.session_state["sim_params"]
-    render_dashboard(assets, df_resultados, df_visitas, sim_params)
+    render_dashboard(assets, df_resultados, df_visitas, sim_params, show_codes=show_codes)
 
 
 if __name__ == "__main__":
