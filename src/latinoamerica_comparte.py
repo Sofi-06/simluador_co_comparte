@@ -467,6 +467,82 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
     return fig
 
 
+def build_path_figure(recorrido: list[str], assets: dict, title: str = "Grafo del Recorrido Seleccionado", show_codes: bool = False) -> go.Figure:
+    G = nx.DiGraph()
+    for i in range(len(recorrido) - 1):
+        src = recorrido[i]
+        dst = recorrido[i + 1]
+        if G.has_edge(src, dst):
+            G[src][dst]["weight"] += 1
+        else:
+            G.add_edge(src, dst, weight=1)
+
+    if recorrido and recorrido[0] not in G.nodes:
+        G.add_node(recorrido[0])
+
+    if len(G.nodes) == 0:
+        return go.Figure()
+
+    pos = {}
+    total = max(len(recorrido), 1)
+    for idx, state in enumerate(recorrido):
+        if state not in pos:
+            pos[state] = (idx, -(idx % 2) * 0.15)
+
+    edge_x, edge_y = [], []
+    for u, v in G.edges():
+        x0, y0 = pos[u]
+        x1, y1 = pos[v]
+        edge_x += [x0, x1, None]
+        edge_y += [y0, y1, None]
+
+    edge_trace = go.Scatter(
+        x=edge_x, y=edge_y,
+        line=dict(width=2, color="#f72585"),
+        hoverinfo='none',
+        mode='lines'
+    )
+
+    node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
+    for n in G.nodes():
+        x, y = pos[n]
+        node_x.append(x)
+        node_y.append(y)
+        name = assets['nombres_estados'].get(n, n)
+        label = n if show_codes else f"{n} - {name}"
+        node_text.append(label)
+        node_hover.append(f"{n} - {name}")
+        if n in assets['critical_states']:
+            node_color.append('#f72585')
+        elif n in assets['estados_finales']:
+            node_color.append('#10b981')
+        else:
+            node_color.append('#4cc9f0')
+
+    node_trace = go.Scatter(
+        x=node_x, y=node_y,
+        mode='markers+text',
+        hoverinfo='text',
+        textposition='top center',
+        text=node_text,
+        hovertext=node_hover,
+        marker=dict(color=node_color, size=22, line_width=1, line=dict(color='rgba(255,255,255,0.2)', width=1))
+    )
+
+    fig = go.Figure(data=[edge_trace, node_trace])
+    fig.update_layout(
+        showlegend=False,
+        title=title,
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)',
+        height=450,
+        font=dict(color="#d4d4d8"),
+        xaxis=dict(visible=False),
+        yaxis=dict(visible=False),
+    )
+    return fig
+
+
 def run_simulation(
     assets: dict, num_usuarios: int, max_pasos: int,
     estado_inicial: str, seed: int = 42,
@@ -1017,13 +1093,23 @@ def render_dashboard(
         df_model_filtered = df_model_rec[df_model_rec['longitud'].between(length_filter[0], length_filter[1])]
         st.dataframe(df_model_filtered[['id','recorrido_codigos','recorrido_nombres','longitud']], use_container_width=True, hide_index=True)
 
-        if st.button("Ver grafos de recorridos", use_container_width=True):
-            fig_g = build_transition_figure_from_visits(df_visitas, assets, title="Grafo: Recorridos Observados", show_codes=show_codes)
-            with st.expander("Grafo de Recorridos", expanded=True):
-                if fig_g and getattr(fig_g, 'data', None):
-                    st.plotly_chart(fig_g, use_container_width=True)
-                else:
-                    st.info("No hay suficientes datos para generar el grafo.")
+        if not df_model_filtered.empty:
+            recorrido_modelo_sel = st.selectbox(
+                "Seleccionar recorrido del modelo",
+                df_model_filtered["id"].tolist(),
+                format_func=lambda rid: f"Recorrido {rid}",
+            )
+            rec_modelo = df_model_filtered[df_model_filtered["id"] == recorrido_modelo_sel].iloc[0]
+            st.markdown(f"**Recorrido seleccionado:** `{rec_modelo['recorrido_codigos']}`")
+            fig_g = build_path_figure(
+                rec_modelo["recorrido_codigos"].split(" -> "),
+                assets,
+                title="Grafo: Recorrido del Modelo Seleccionado",
+                show_codes=show_codes,
+            )
+            st.plotly_chart(fig_g, use_container_width=True)
+        else:
+            st.info("No hay recorridos del modelo con ese filtro.")
 
     # ── TAB 5 ─────────────────────────────────────────────────────────────────
     with tabs[5]:
@@ -1154,28 +1240,39 @@ def render_dashboard(
             use_container_width=True, hide_index=True,
         )
 
-        usuario_sel = st.selectbox("Ver detalle de usuario", df_resultados["usuario"].head(100))
-        sel = df_resultados[df_resultados["usuario"]==usuario_sel].iloc[0]
-        rd1, rd2 = st.columns([2,1])
-        with rd1:
-            st.markdown(
-                f"""
-                <div class="panel-card">
-                    <div class="section-title">Usuario #{int(sel["usuario"])}</div>
-                    <div class="section-copy">
-                        <strong>Recorrido (códigos):</strong> {sel["recorrido"]}<br>
-                        <strong>Recorrido (nombres):</strong> {sel["recorrido_nombres"]}<br>
-                        <strong>Estado Final:</strong> {sel["estado_final_nombre"]}<br>
-                        <strong>Pasos:</strong> {sel["num_pasos"]}<br>
-                        <strong>Resultado:</strong> {sel["resultado"]}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
-        with rd2:
-            st.metric("Categoría", sel["categoria_final"]) 
+        usuarios_filtrados = df_f["usuario"].head(100).tolist()
+        if usuarios_filtrados:
+            usuario_sel = st.selectbox("Ver detalle de usuario", usuarios_filtrados)
+            sel = df_resultados[df_resultados["usuario"] == usuario_sel].iloc[0]
+            rd1, rd2 = st.columns([2,1])
+            with rd1:
+                st.markdown(
+                    f"""
+                    <div class="panel-card">
+                        <div class="section-title">Usuario #{int(sel["usuario"])}<\/div>
+                        <div class="section-copy">
+                            <strong>Recorrido (c??digos):<\/strong> {sel["recorrido"]}<br>
+                            <strong>Recorrido (nombres):<\/strong> {sel["recorrido_nombres"]}<br>
+                            <strong>Estado Final:<\/strong> {sel["estado_final_nombre"]}<br>
+                            <strong>Pasos:<\/strong> {sel["num_pasos"]}<br>
+                            <strong>Resultado:<\/strong> {sel["resultado"]}
+                        <\/div>
+                    <\/div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            with rd2:
+                st.metric("Categor??a", sel["categoria_final"])
 
+            fig_usuario = build_path_figure(
+                sel["recorrido_lista"],
+                assets,
+                title=f"Grafo del recorrido del usuario {int(sel['usuario'])}",
+                show_codes=show_codes,
+            )
+            st.plotly_chart(fig_usuario, use_container_width=True)
+        else:
+            st.info("No hay usuarios que coincidan con los filtros seleccionados.")
         st.markdown("---")
         st.markdown("**Recomendaciones automáticas (análisis rápido)**")
         for rec in generate_recommendations(summary, df_resultados, df_visitas):
