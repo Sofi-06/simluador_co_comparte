@@ -1,4 +1,5 @@
 import base64
+import html as html_lib
 import os
 import time
 from collections import Counter
@@ -306,9 +307,12 @@ def load_markov_assets() -> dict:
 
 # ----- helpers de simulacion -----
 def classify_result(result_name: str, assets: dict) -> str:
-    if result_name in assets["success_states"]:    return "Éxito"
-    if result_name in assets["error_states"]:      return "Error"
-    if result_name in assets["abandonment_states"]:return "Abandono"
+    if result_name in assets["success_states"]:
+        return "Éxito"
+    if result_name in assets["error_states"]:
+        return "Error"
+    if result_name in assets["abandonment_states"]:
+        return "Abandono"
     return "Otro"
 
 
@@ -631,7 +635,7 @@ def compute_summary(df_resultados: pd.DataFrame, df_visitas: pd.DataFrame, asset
     critical_state = critical_visits.index[0] if not critical_visits.empty else "Sin incidencias"
 
     # ----- tasas globales -----
-    success_rate     = (df_resultados["categoria_final"] == "Exito").mean()    * 100
+    success_rate     = (df_resultados["categoria_final"] == "Éxito").mean()    * 100
     error_rate       = (df_resultados["categoria_final"] == "Error").mean()    * 100
     abandonment_rate = (df_resultados["categoria_final"] == "Abandono").mean() * 100
 
@@ -867,7 +871,7 @@ def perform_simulation(assets: dict, num_usuarios: int, max_pasos: int, estado_i
         if (i + 1) % chunk == 0 or i + 1 == num_usuarios:
             parcial    = pd.DataFrame(results)
             categorias = parcial["categoria_final"].value_counts(normalize=True).mul(100).round(1)
-            ex = categorias.get("Exito",   0)
+            ex = categorias.get("Éxito",   0)
             er = categorias.get("Error",   0)
             ab = categorias.get("Abandono",0)
             live_box.markdown(
@@ -1301,25 +1305,29 @@ def render_dashboard(
         if usuarios_filtrados:
             usuario_sel = st.selectbox("Ver detalle de usuario", usuarios_filtrados)
             sel = df_resultados[df_resultados["usuario"] == usuario_sel].iloc[0]
+            recorrido_codigos = html_lib.escape(str(sel["recorrido"]))
+            recorrido_nombres = html_lib.escape(str(sel["recorrido_nombres"]))
+            estado_final_nombre = html_lib.escape(str(sel["estado_final_nombre"]))
+            resultado = html_lib.escape(str(sel["resultado"]))
             rd1, rd2 = st.columns([2,1])
             with rd1:
                 st.markdown(
                     f"""
                     <div class="panel-card">
-                        <div class="section-title">Usuario #{int(sel["usuario"])}<\/div>
+                        <div class="section-title">Usuario #{int(sel["usuario"])}</div>
                         <div class="section-copy">
-                            <strong>Recorrido (c??digos):<\/strong> {sel["recorrido"]}<br>
-                            <strong>Recorrido (nombres):<\/strong> {sel["recorrido_nombres"]}<br>
-                            <strong>Estado Final:<\/strong> {sel["estado_final_nombre"]}<br>
-                            <strong>Pasos:<\/strong> {sel["num_pasos"]}<br>
-                            <strong>Resultado:<\/strong> {sel["resultado"]}
-                        <\/div>
-                    <\/div>
+                            <strong>Recorrido (codigos):</strong> {recorrido_codigos}<br>
+                            <strong>Recorrido (nombres):</strong> {recorrido_nombres}<br>
+                            <strong>Estado final:</strong> {estado_final_nombre}<br>
+                            <strong>Pasos:</strong> {sel["num_pasos"]}<br>
+                            <strong>Resultado:</strong> {resultado}
+                        </div>
+                    </div>
                     """,
                     unsafe_allow_html=True,
                 )
             with rd2:
-                st.metric("Categor??a", sel["categoria_final"])
+                st.metric("Categoria", sel["categoria_final"])
 
             fig_usuario = build_path_figure(
                 sel["recorrido_lista"],
@@ -1414,10 +1422,18 @@ def render_dashboard(
                 p = float(row_probs.loc[d])
                 sliders[d] = st.slider(f"{d} - {assets['nombres_estados'][d]}", 0.0, 1.0, value=p, step=0.01)
 
+            if crit_code in assets['estados_finales']:
+                st.info(
+                    'Este estado crítico también está marcado como final en el modelo base. '
+                    'Si aplicas nuevas salidas, la simulación mejorada lo tratará como recuperable '
+                    'para que esos cambios sí tengan efecto.'
+                )
+
             if st.button('Aplicar mejora y recalcular (antes/después)', use_container_width=True, type='primary'):
                 # build modified assets copy
                 assets_mod = assets.copy()
                 assets_mod['matriz_probabilidades'] = assets['matriz_probabilidades'].copy()
+                assets_mod['estados_finales'] = list(assets['estados_finales'])
                 # set new row values for displayed destinations, keep other destinations as-is
                 for d in dests:
                     assets_mod['matriz_probabilidades'].loc[crit_code, d] = float(sliders[d])
@@ -1425,6 +1441,11 @@ def render_dashboard(
                 row_sum = assets_mod['matriz_probabilidades'].loc[crit_code].sum()
                 if row_sum > 0:
                     assets_mod['matriz_probabilidades'].loc[crit_code] = assets_mod['matriz_probabilidades'].loc[crit_code] / row_sum
+                    if crit_code in assets_mod['estados_finales']:
+                        assets_mod['estados_finales'].remove(crit_code)
+                elif crit_code in assets_mod['estados_finales']:
+                    # Si no se definieron salidas, mantiene el comportamiento terminal original.
+                    assets_mod['estados_finales'] = list(assets['estados_finales'])
 
                 # run simulation with modified matrix (use smaller sample for speed option)
                 usuarios_run = int(sim_params.get('usuarios', 50))
@@ -1447,9 +1468,24 @@ def render_dashboard(
             before_summary = compute_summary(df_before, df_visitas, assets)
             after_summary = compute_summary(df_after, st.session_state['df_visitas_opt'], st.session_state.get('assets_mod', assets))
             c1, c2, c3 = st.columns(3)
-            c1.metric('Éxito antes', f"{before_summary['success_rate']:.1f}%", delta=f"{after_summary['success_rate'] - before_summary['success_rate']:.1f}%")
-            c2.metric('Error antes', f"{before_summary['error_rate']:.1f}%", delta=f"{after_summary['error_rate'] - before_summary['error_rate']:.1f}%")
-            c3.metric('Abandono antes', f"{before_summary['abandonment_rate']:.1f}%", delta=f"{after_summary['abandonment_rate'] - before_summary['abandonment_rate']:.1f}%")
+            c1.metric(
+                'Éxito después',
+                f"{after_summary['success_rate']:.1f}%",
+                delta=f"{after_summary['success_rate'] - before_summary['success_rate']:.1f}% vs antes",
+                delta_color="normal",
+            )
+            c2.metric(
+                'Error después',
+                f"{after_summary['error_rate']:.1f}%",
+                delta=f"{after_summary['error_rate'] - before_summary['error_rate']:.1f}% vs antes",
+                delta_color="inverse",
+            )
+            c3.metric(
+                'Abandono después',
+                f"{after_summary['abandonment_rate']:.1f}%",
+                delta=f"{after_summary['abandonment_rate'] - before_summary['abandonment_rate']:.1f}% vs antes",
+                delta_color="inverse",
+            )
             # plot side by side bars
             fig_cmp = go.Figure()
             fig_cmp.add_trace(go.Bar(x=['Éxito','Error','Abandono'], y=[before_summary['success_rate'], before_summary['error_rate'], before_summary['abandonment_rate']], name='Antes', marker_color='#b0a8bf'))
@@ -1505,9 +1541,10 @@ def render_dashboard(
             fig_g = go.Figure(go.Indicator(
                 mode="gauge+number+delta",
                 value=value_for_gauge,
-                delta={"reference": delta_ref, "position":"top"},
                 title={"text":"Éxito Proyectado"},
-                domain={"x":[0,1],"y":[0,1]},
+                domain={"x":[0.08,0.92],"y":[0.12,0.82]},
+                number={"font":{"size":48}},
+                delta={"reference": delta_ref, "position":"bottom", "font":{"size":18}},
                 gauge={
                     "axis":{"range":[0,100]},
                     "bar":{"color":"#4cb850"},
@@ -1519,7 +1556,10 @@ def render_dashboard(
                 },
             ))
             fig_g.update_layout(
-                paper_bgcolor="rgba(0,0,0,0)", font=dict(color="#d4d4d8"), height=300,
+                paper_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#d4d4d8"),
+                height=360,
+                margin=dict(l=24, r=24, t=72, b=36),
             )
             st.plotly_chart(fig_g, use_container_width=True)
 
