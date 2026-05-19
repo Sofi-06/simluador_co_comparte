@@ -12,8 +12,7 @@ import streamlit as st
 from streamlit.components.v1 import html
 from PIL import Image
 
-# ── Configuración general ─────────────────────────────────────────────────────
-# ── Configuración general ─────────────────────────────────────────────────────
+# ----- configuracion general -----
 LOGO_PATH = os.path.join(
     os.path.dirname(os.path.abspath(__file__)),
     "..", "assets", "logo.png"
@@ -29,7 +28,7 @@ st.set_page_config(
 )
 
 
-# ── Logo helper ───────────────────────────────────────────────────────────────
+# ----- helpers de logos -----
 def get_logo_html(max_width: int = 120) -> str:
     """Devuelve <img> en base64 si existe el archivo, o texto fallback."""
     if os.path.exists(LOGO_PATH):
@@ -62,7 +61,7 @@ def get_analytics_logo_html(max_width: int = 70) -> str:
     return ""
 
 
-# ── Estilos ───────────────────────────────────────────────────────────────────
+# ----- estilos y enfoque de pestañas -----
 def inject_styles() -> None:
     css_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'styles.css')
     assets_css = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'assets', 'styles.css')
@@ -119,9 +118,10 @@ def focus_active_tab() -> None:
     st.session_state.pop("active_tab", None)
 
 
-# ── Datos del modelo ──────────────────────────────────────────────────────────
+# ----- datos del modelo markoviano -----
 @st.cache_data
 def load_markov_assets() -> dict:
+    # ----- recorridos base del modelo -----
     recorridos = [
         ["S0","S28","S29"],
         ["S0","S28","S30"],
@@ -186,6 +186,7 @@ def load_markov_assets() -> dict:
         ["S6","S15","S22","S23","S22","S21"],
     ]
 
+    # ----- catalogo de estados -----
     estados = [
         "S0","S1","S2","S3","S4","S5","S6","S7","S8",
         "S9","S10","S11","S12","S13","S14","S15","S16",
@@ -194,11 +195,13 @@ def load_markov_assets() -> dict:
         "S33","S34","S35","S36",
     ]
 
+    # ----- estados terminales -----
     estados_finales = [
         "S3","S7","S8","S11","S12","S14","S17","S19",
         "S21","S23","S27","S29","S30","S32","S35","S36",
     ]
 
+    # ----- nombres descriptivos -----
     nombres_estados = {
         "S0":  "Sesión no iniciada",
         "S1":  "Formulario de login visible",
@@ -239,6 +242,7 @@ def load_markov_assets() -> dict:
         "S36": "Respuesta del chatbot no disponible",
     }
 
+    # ----- ponderaciones de resultados -----
     weighted_success_states = {
         "Estado de solicitud actualizado":  0.10,
         "Contenido general en navegación":  0.10,
@@ -262,11 +266,13 @@ def load_markov_assets() -> dict:
         "Sesión cerrada por inactividad":   0.40,
     }
 
+    # ----- clasificaciones del modelo -----
     critical_states    = {"S3","S12","S23","S32","S36","S8"}
     success_states     = set(weighted_success_states.keys())
     error_states       = set(weighted_error_states.keys())
     abandonment_states = set(weighted_abandonment_states.keys())
 
+    # ----- construccion de matrices base -----
     matriz_conteos = pd.DataFrame(0, index=estados, columns=estados)
     for recorrido in recorridos:
         for i in range(len(recorrido) - 1):
@@ -276,9 +282,10 @@ def load_markov_assets() -> dict:
         matriz_conteos.sum(axis=1), axis=0
     ).fillna(0)
 
-    # Extraer estados iniciales válidos (primeros estados de cada recorrido)
+    # ----- estados iniciales permitidos -----
     estados_iniciales_validos = sorted(set(rec[0] for rec in recorridos if rec))
 
+    # ----- paquete final de assets -----
     return {
         "recorridos":                recorridos,
         "estados":                   estados,
@@ -297,7 +304,7 @@ def load_markov_assets() -> dict:
     }
 
 
-# ── Helpers de simulación ─────────────────────────────────────────────────────
+# ----- helpers de simulacion -----
 def classify_result(result_name: str, assets: dict) -> str:
     if result_name in assets["success_states"]:    return "Éxito"
     if result_name in assets["error_states"]:      return "Error"
@@ -331,6 +338,7 @@ def state_type(state_code: str, assets: dict) -> str:
 
 
 def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, title: str = "Grafo de Transiciones", show_codes: bool = False) -> go.Figure:
+    # ----- construir grafo desde matriz -----
     G = nx.DiGraph()
     for src in matriz.index:
         for dst in matriz.columns:
@@ -338,6 +346,7 @@ def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, titl
             if w > 0:
                 G.add_edge(src, dst, weight=w)
 
+    # ----- posicion y aristas -----
     pos = nx.spring_layout(G, seed=42)
     edge_x, edge_y = [], []
     for u, v, data in G.edges(data=True):
@@ -353,6 +362,7 @@ def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, titl
         mode='lines'
     )
 
+    # ----- nodos y etiquetas -----
     node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
     for n in G.nodes():
         x, y = pos[n]
@@ -379,12 +389,14 @@ def build_transition_figure_from_matrix(matriz: pd.DataFrame, assets: dict, titl
         marker=dict(color=node_color, size=22, line_width=1, line=dict(color='rgba(255,255,255,0.2)', width=1))
     )
 
+    # ----- figura final -----
     fig = go.Figure(data=[edge_trace, node_trace])
     fig.update_layout(showlegend=False, title=title, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=450, font=dict(color="#d4d4d8"))
     return fig
 
 
 def build_transition_matrices_from_visits(df_visitas: pd.DataFrame, assets: dict) -> tuple[pd.DataFrame, pd.DataFrame]:
+    # ----- estructura vacia de matrices -----
     estados = assets["estados"]
     matriz_conteos = pd.DataFrame(0, index=estados, columns=estados)
 
@@ -392,6 +404,7 @@ def build_transition_matrices_from_visits(df_visitas: pd.DataFrame, assets: dict
         matriz_probabilidades = matriz_conteos.astype(float)
         return matriz_conteos, matriz_probabilidades
 
+    # ----- conteo de transiciones observadas -----
     df_visits_sorted = df_visitas.sort_values(["usuario", "orden"])
     for _, group in df_visits_sorted.groupby("usuario"):
         seq = list(group["estado"])
@@ -401,12 +414,13 @@ def build_transition_matrices_from_visits(df_visitas: pd.DataFrame, assets: dict
             if src in matriz_conteos.index and dst in matriz_conteos.columns:
                 matriz_conteos.loc[src, dst] += 1
 
+    # ----- normalizacion a probabilidades -----
     matriz_probabilidades = matriz_conteos.div(matriz_conteos.sum(axis=1), axis=0).fillna(0)
     return matriz_conteos, matriz_probabilidades
 
 
 def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, title: str = "Grafo de Recorridos Observados", show_codes: bool = False) -> go.Figure:
-    # Build counts of transitions from visits
+    # ----- conteo de transiciones observadas -----
     df_visits_sorted = df_visitas.sort_values(['usuario','orden'])
     edges = Counter()
     for uid, group in df_visits_sorted.groupby('usuario'):
@@ -414,6 +428,7 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
         for i in range(len(seq)-1):
             edges[(seq[i], seq[i+1])] += 1
 
+    # ----- construir grafo observado -----
     G = nx.DiGraph()
     for (u,v), w in edges.items():
         G.add_edge(u, v, weight=w)
@@ -421,6 +436,7 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
     if len(G.nodes) == 0:
         return go.Figure()
 
+    # ----- posicion y aristas -----
     pos = nx.spring_layout(G, seed=42)
     edge_x, edge_y = [], []
     for u, v, data in G.edges(data=True):
@@ -436,6 +452,7 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
         mode='lines'
     )
 
+    # ----- nodos y etiquetas -----
     node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
     for n in G.nodes():
         x, y = pos[n]
@@ -462,12 +479,14 @@ def build_transition_figure_from_visits(df_visitas: pd.DataFrame, assets: dict, 
         marker=dict(color=node_color, size=20, line_width=1, line=dict(color='rgba(255,255,255,0.2)', width=1))
     )
 
+    # ----- figura final -----
     fig = go.Figure(data=[edge_trace, node_trace])
     fig.update_layout(showlegend=False, title=title, paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', height=500, font=dict(color="#d4d4d8"))
     return fig
 
 
 def build_path_figure(recorrido: list[str], assets: dict, title: str = "Grafo del Recorrido Seleccionado", show_codes: bool = False) -> go.Figure:
+    # ----- construir recorrido seleccionado -----
     G = nx.DiGraph()
     for i in range(len(recorrido) - 1):
         src = recorrido[i]
@@ -483,6 +502,7 @@ def build_path_figure(recorrido: list[str], assets: dict, title: str = "Grafo de
     if len(G.nodes) == 0:
         return go.Figure()
 
+    # ----- posicion secuencial del recorrido -----
     pos = {}
     total = max(len(recorrido), 1)
     for idx, state in enumerate(recorrido):
@@ -503,6 +523,7 @@ def build_path_figure(recorrido: list[str], assets: dict, title: str = "Grafo de
         mode='lines'
     )
 
+    # ----- nodos y etiquetas -----
     node_x, node_y, node_text, node_color, node_hover = [], [], [], [], []
     for n in G.nodes():
         x, y = pos[n]
@@ -529,6 +550,7 @@ def build_path_figure(recorrido: list[str], assets: dict, title: str = "Grafo de
         marker=dict(color=node_color, size=22, line_width=1, line=dict(color='rgba(255,255,255,0.2)', width=1))
     )
 
+    # ----- figura final -----
     fig = go.Figure(data=[edge_trace, node_trace])
     fig.update_layout(
         showlegend=False,
@@ -547,8 +569,11 @@ def run_simulation(
     assets: dict, num_usuarios: int, max_pasos: int,
     estado_inicial: str, seed: int = 42,
 ):
+    # ----- configuracion de ejecucion -----
     np.random.seed(seed)
     resultados, visitas = [], []
+
+    # ----- simulacion usuario por usuario -----
     for i in range(num_usuarios):
         recorrido    = simulate_user(assets["matriz_probabilidades"], assets["estados_finales"], estado_inicial, max_pasos)
         estado_final = recorrido[-1]
@@ -564,6 +589,7 @@ def run_simulation(
             "resultado":           result_name,
             "categoria_final":     classify_result(result_name, assets),
         })
+        # ----- detalle de visitas por recorrido -----
         for orden, estado in enumerate(recorrido, start=1):
             visitas.append({
                 "usuario":       i + 1,
@@ -575,7 +601,7 @@ def run_simulation(
     return pd.DataFrame(resultados), pd.DataFrame(visitas)
 
 
-# ── KPIs ──────────────────────────────────────────────────────────────────────
+# ----- metricas y recomendaciones -----
 def calculate_weighted_percentages(df_resultados: pd.DataFrame, assets: dict) -> dict:
     def score(states_dict):
         return sum(
@@ -592,16 +618,19 @@ def calculate_weighted_percentages(df_resultados: pd.DataFrame, assets: dict) ->
 
 
 def compute_summary(df_resultados: pd.DataFrame, df_visitas: pd.DataFrame, assets: dict) -> dict:
+    # ----- resumen de resultados finales -----
     result_counts = df_resultados["resultado"].value_counts()
     top_result    = result_counts.index[0] if not result_counts.empty else "Sin datos"
     weighted      = calculate_weighted_percentages(df_resultados, assets)
 
+    # ----- identificacion de estado critico -----
     critical_visits = (
         df_visitas[df_visitas["estado"].isin(assets["critical_states"])]["estado_nombre"]
         .value_counts()
     )
     critical_state = critical_visits.index[0] if not critical_visits.empty else "Sin incidencias"
 
+    # ----- tasas globales -----
     success_rate     = (df_resultados["categoria_final"] == "Exito").mean()    * 100
     error_rate       = (df_resultados["categoria_final"] == "Error").mean()    * 100
     abandonment_rate = (df_resultados["categoria_final"] == "Abandono").mean() * 100
@@ -626,6 +655,7 @@ def find_state_code_by_name(name: str, assets: dict) -> str | None:
 
 
 def generate_recommendations(summary: dict, df_resultados: pd.DataFrame, df_visitas: pd.DataFrame) -> list:
+    # ----- reglas de recomendacion -----
     recs = []
     sr, er, ar = summary["success_rate"], summary["error_rate"], summary["abandonment_rate"]
     if sr >= 50:
@@ -637,6 +667,7 @@ def generate_recommendations(summary: dict, df_resultados: pd.DataFrame, df_visi
     if ar >= 20:
         recs.append({"type":"warning","title":"Reducir abandonos",
             "text": "Abandono de " + str(int(ar)) + "%. Simplifica el flujo y mejora el feedback visual."})
+    # ----- hallazgos puntuales -----
     error_top = df_resultados[df_resultados["categoria_final"]=="Error"]["resultado"].value_counts().head(1)
     if not error_top.empty:
         recs.append({"type":"error","title":"Cuello de botella: " + error_top.index[0],
@@ -694,7 +725,7 @@ def generate_critical_state_recommendation(
     }
 
 
-# ── Hero banner ───────────────────────────────────────────────────────────────
+# ----- banner principal -----
 def hero_section(summary: dict, assets: dict, usuarios: int) -> None:
     num_estados  = len(assets["estados"])
     # Mostrar métricas ponderadas en el banner principal
@@ -740,10 +771,11 @@ def hero_section(summary: dict, assets: dict, usuarios: int) -> None:
     st.markdown(kpi_html, unsafe_allow_html=True)
 
 
-# ── Sidebar ───────────────────────────────────────────────────────────────────
+# ----- sidebar y controles -----
 def render_sidebar(assets: dict) -> tuple:
     logo_html = get_logo_html(max_width=100)
     with st.sidebar:
+        # ----- identidad y contexto -----
         st.markdown(
             f"""
             <div class="logo-banner">
@@ -756,6 +788,7 @@ def render_sidebar(assets: dict) -> tuple:
         st.caption("Simulador basado en Cadenas de Márkov")
         st.markdown("---")
 
+        # ----- parametros de simulacion -----
         num_usuarios   = st.slider("Usuarios a simular", min_value=5,  max_value=5000, value=100, step=5)
         max_pasos      = st.slider("Máximo de pasos",    min_value=5,  max_value=100, value=20, step=5)
         estado_inicial = st.selectbox(
@@ -766,13 +799,14 @@ def render_sidebar(assets: dict) -> tuple:
         )
 
         st.markdown("---")
+        # ----- acciones principales -----
         c1, c2 = st.columns(2)
         with c1:
             iniciar  = st.button("Simular", use_container_width=True, type="primary")
         with c2:
             resetear = st.button("Limpiar", use_container_width=True)
 
-        # Previsualizacion rápida
+        # ----- opciones de previsualizacion -----
         previsualizar = st.button("Previsualizar", use_container_width=True)
         show_codes = st.checkbox("Mostrar solo códigos en grafos", value=True)
 
@@ -795,14 +829,16 @@ def render_sidebar(assets: dict) -> tuple:
     return num_usuarios, max_pasos, estado_inicial, iniciar, previsualizar, show_codes
 
 
-# ── Simulacion con progreso ───────────────────────────────────────────────────
+# ----- simulacion con progreso -----
 def perform_simulation(assets: dict, num_usuarios: int, max_pasos: int, estado_inicial: str) -> None:
+    # ----- inicializacion del progreso -----
     progress = st.sidebar.progress(0, text="Preparando...")
     live_box = st.sidebar.empty()
     results, visitas = [], []
     chunk = max(5, num_usuarios // 20)
     np.random.seed(42)
 
+    # ----- procesamiento por usuario -----
     for i in range(num_usuarios):
         recorrido    = simulate_user(assets["matriz_probabilidades"], assets["estados_finales"], estado_inicial, max_pasos)
         estado_final = recorrido[-1]
@@ -827,6 +863,7 @@ def perform_simulation(assets: dict, num_usuarios: int, max_pasos: int, estado_i
                 "estado_tipo":   state_type(estado, assets),
             })
 
+        # ----- actualizacion visual del progreso -----
         if (i + 1) % chunk == 0 or i + 1 == num_usuarios:
             parcial    = pd.DataFrame(results)
             categorias = parcial["categoria_final"].value_counts(normalize=True).mul(100).round(1)
@@ -848,6 +885,7 @@ def perform_simulation(assets: dict, num_usuarios: int, max_pasos: int, estado_i
             progress.progress(int((i+1)/num_usuarios*100), text=f"Usuario {i+1} de {num_usuarios}")
             time.sleep(0.02)
 
+    # ----- persistencia de resultados -----
     progress.empty()
     live_box.empty()
     st.session_state["df_resultados"] = pd.DataFrame(results)
@@ -857,8 +895,9 @@ def perform_simulation(assets: dict, num_usuarios: int, max_pasos: int, estado_i
     }
 
 
-# ── Estado inicial automatico ─────────────────────────────────────────────────
+# ----- estado inicial automatico -----
 def initial_state(assets: dict) -> None:
+    # ----- simulacion inicial por defecto -----
     if "df_resultados" not in st.session_state:
         df_r, df_v = run_simulation(assets, 1200, 12, "S0")
         st.session_state["df_resultados"] = df_r
@@ -866,7 +905,7 @@ def initial_state(assets: dict) -> None:
         st.session_state["sim_params"]    = {"usuarios":1200,"max_pasos":12,"estado_inicial":"S0"}
 
 
-# ── Dashboard ─────────────────────────────────────────────────────────────────
+# ----- dashboard principal -----
 def render_dashboard(
     assets: dict,
     df_resultados: pd.DataFrame,
@@ -874,6 +913,7 @@ def render_dashboard(
     sim_params: dict,
     show_codes: bool = True,
 ) -> None:
+    # ----- resumen y matrices observadas -----
     summary = compute_summary(df_resultados, df_visitas, assets)
     matrix_counts, matrix_probabilities = build_transition_matrices_from_visits(df_visitas, assets)
     if matrix_counts.values.sum() == 0:
@@ -881,6 +921,7 @@ def render_dashboard(
         matrix_probabilities = assets["matriz_probabilidades"]
     hero_section(summary, assets, sim_params["usuarios"])
 
+    # ----- estructura de navegacion -----
     tabs = st.tabs([
         "Resumen Ejecutivo", "Estados", "Matriz Conteo",
         "Matriz Probabilidades", "Recorridos", "Resultados",
@@ -888,8 +929,9 @@ def render_dashboard(
     ])
     focus_active_tab()
 
-    # ── TAB 0 ─────────────────────────────────────────────────────────────────
+    # ----- resumen ejecutivo -----
     with tabs[0]:
+        # ----- bloque narrativo y metricas -----
         col1, col2 = st.columns([1.4, 0.6])
         with col1:
             st.markdown(
@@ -928,6 +970,7 @@ def render_dashboard(
             st.plotly_chart(fig_w, use_container_width=True)
 
         with col2:
+            # ----- tarjetas de hallazgos clave -----
             top_r  = summary["top_result"]
             crit_s = summary["critical_state"]
             avg_s  = summary["avg_steps"]
@@ -960,8 +1003,9 @@ def render_dashboard(
                 unsafe_allow_html=True,
             )
 
-    # ── TAB 1 ─────────────────────────────────────────────────────────────────
+    # ----- catalogo de estados -----
     with tabs[1]:
+        # ----- tabla general de estados -----
         st.markdown(
             """
             <div class="panel-card">
@@ -984,11 +1028,13 @@ def render_dashboard(
         ]
         st.dataframe(pd.DataFrame(rows), use_container_width=True, hide_index=True)
         st.markdown("")
+        # ----- grafo general del sistema -----
         st.markdown("**Grafo de Estados Observados (simulación actual)**")
         fig_states = build_transition_figure_from_matrix(matrix_probabilities, assets, title="Grafo de Probabilidades Observadas", show_codes=show_codes)
         st.plotly_chart(fig_states, use_container_width=True)
 
         st.markdown("")
+        # ----- detalle de salidas por estado -----
         estado_sel = st.selectbox("Ver probabilidades de salida", assets["estados"], format_func=lambda s: f"{s} - {assets['nombres_estados'][s]}")
         probs = matrix_probabilities.loc[estado_sel]
         probs_df = probs[probs > 0].reset_index()
@@ -999,8 +1045,9 @@ def render_dashboard(
             fig_out.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#d4d4d8'))
             st.plotly_chart(fig_out, use_container_width=True)
 
-    # ── TAB 2 ─────────────────────────────────────────────────────────────────
+    # ----- matriz de conteo -----
     with tabs[2]:
+        # ----- mapa de calor de frecuencias -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1027,13 +1074,15 @@ def render_dashboard(
             font=dict(color="#e8eaed",size=10), height=700,
         )
         st.plotly_chart(fig_c, use_container_width=True)
+        # ----- metricas de densidad de transiciones -----
         cc1, cc2, cc3 = st.columns(3)
         cc1.metric("Total Transiciones",  int(matrix_counts.sum().sum()))
         cc2.metric("Transiciones Únicas", int((matrix_counts > 0).sum().sum()))
         cc3.metric("Máxima Frecuencia",   int(matrix_counts.max().max()))
 
-    # ── TAB 3 ─────────────────────────────────────────────────────────────────
+    # ----- matriz de probabilidades -----
     with tabs[3]:
+        # ----- mapa de calor probabilistico -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1061,8 +1110,9 @@ def render_dashboard(
         )
         st.plotly_chart(fig_p, use_container_width=True)
 
-    # ── TAB 4 ─────────────────────────────────────────────────────────────────
+    # ----- recorridos del modelo -----
     with tabs[4]:
+        # ----- indicadores del catalogo de recorridos -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1081,7 +1131,7 @@ def render_dashboard(
         rf4.metric("Estados críticos", len(assets.get('critical_states', [])))
         st.markdown("")
 
-        # Construir dataframe de recorridos del modelo con traducciones
+        # ----- tabla filtrable de recorridos -----
         model_rows = []
         for i, rec in enumerate(assets.get('recorridos', []), start=1):
             codigo = " -> ".join(rec)
@@ -1093,6 +1143,7 @@ def render_dashboard(
         df_model_filtered = df_model_rec[df_model_rec['longitud'].between(length_filter[0], length_filter[1])]
         st.dataframe(df_model_filtered[['id','recorrido_codigos','recorrido_nombres','longitud']], use_container_width=True, hide_index=True)
 
+        # ----- seleccion y grafo del recorrido -----
         if not df_model_filtered.empty:
             recorrido_modelo_sel = st.selectbox(
                 "Seleccionar recorrido del modelo",
@@ -1111,8 +1162,9 @@ def render_dashboard(
         else:
             st.info("No hay recorridos del modelo con ese filtro.")
 
-    # ── TAB 5 ─────────────────────────────────────────────────────────────────
+    # ----- resultados finales -----
     with tabs[5]:
+        # ----- distribucion de cierres y categorias -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1153,6 +1205,7 @@ def render_dashboard(
             )
             st.plotly_chart(fig_d, use_container_width=True)
 
+        # ----- ranking de estados mas visitados -----
         top_df = summary["top_states"].reset_index()
         top_df.columns = ["Estado","Visitas"]
         top_df["Nombre"] = top_df["Estado"].map(assets["nombres_estados"])
@@ -1168,8 +1221,9 @@ def render_dashboard(
         )
         st.plotly_chart(fig_v, use_container_width=True)
 
-    # ── TAB 6 ─────────────────────────────────────────────────────────────────
+    # ----- simulacion ejecutada -----
     with tabs[6]:
+        # ----- resumen visual de la corrida actual -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1182,6 +1236,7 @@ def render_dashboard(
             unsafe_allow_html=True,
         )
         st.markdown("")
+        # ----- metricas principales y composicion final -----
         col_a, col_b = st.columns([1.2, 0.8])
         with col_a:
             st.metric("Usuarios simulados", int(sim_params.get('usuarios', 0)))
@@ -1209,9 +1264,10 @@ def render_dashboard(
             fig_pie.update_layout(paper_bgcolor='rgba(0,0,0,0)', font=dict(color='#d4d4d8'))
             st.plotly_chart(fig_pie, use_container_width=True)
 
+        # ----- detalle exploratorio de recorridos -----
         st.markdown("---")
 
-        # Mostrar tabla de recorridos simulados (detallada) con traducción de códigos
+        # ----- tabla de recorridos simulados -----
         st.markdown("**Recorridos Simulados (detallados)**")
         # añadir columna traducida si no existe
         if 'recorrido_nombres' not in df_resultados.columns:
@@ -1240,6 +1296,7 @@ def render_dashboard(
             use_container_width=True, hide_index=True,
         )
 
+        # ----- inspeccion individual de usuarios -----
         usuarios_filtrados = df_f["usuario"].head(100).tolist()
         if usuarios_filtrados:
             usuario_sel = st.selectbox("Ver detalle de usuario", usuarios_filtrados)
@@ -1273,6 +1330,7 @@ def render_dashboard(
             st.plotly_chart(fig_usuario, use_container_width=True)
         else:
             st.info("No hay usuarios que coincidan con los filtros seleccionados.")
+        # ----- recomendaciones generadas automaticamente -----
         st.markdown("---")
         st.markdown("**Recomendaciones automáticas (análisis rápido)**")
         for rec in generate_recommendations(summary, df_resultados, df_visitas):
@@ -1287,8 +1345,9 @@ def render_dashboard(
                 unsafe_allow_html=True,
             )
 
-    # ── TAB 7 ─────────────────────────────────────────────────────────────────
+    # ----- simulador de mejoras -----
     with tabs[7]:
+        # ----- contexto del simulador de mejoras -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1302,7 +1361,7 @@ def render_dashboard(
         )
         st.markdown("")
 
-        # Detectar estado crítico actual (nombre) y buscar su código
+        # ----- deteccion del estado critico -----
         crit_name = summary.get('critical_state', None)
         crit_code = find_state_code_by_name(crit_name, assets) if crit_name else None
 
@@ -1313,6 +1372,7 @@ def render_dashboard(
         else:
             st.markdown(f"**Estado crítico detectado:** <strong>{crit_code} - {crit_name}</strong>", unsafe_allow_html=True)
 
+        # ----- recomendacion asociada al punto critico -----
         if crit_code is not None and crit_name is not None and crit_name != 'Sin incidencias':
             rec_crit = generate_critical_state_recommendation(crit_code, crit_name, df_resultados, df_visitas, assets)
             st.markdown(
@@ -1325,7 +1385,7 @@ def render_dashboard(
                 unsafe_allow_html=True,
             )
 
-        # Mostrar por qué es crítico
+        # ----- analisis del estado critico -----
         st.markdown("**Por qué es crítico**")
         visits_crit = df_visitas[df_visitas['estado'] == crit_code]
         cnt_users = visits_crit['usuario'].nunique()
@@ -1339,6 +1399,7 @@ def render_dashboard(
             st.markdown('Ejemplos de recorridos que contienen el estado crítico:')
             st.dataframe(sample_rows[['usuario','recorrido','num_pasos','estado_final','categoria_final']], use_container_width=True)
 
+        # ----- ajuste manual de probabilidades -----
         st.markdown('---')
         st.markdown('**Ajustar probabilidades de salida del estado crítico**')
         row_probs = assets['matriz_probabilidades'].loc[crit_code]
@@ -1377,6 +1438,7 @@ def render_dashboard(
                 st.success('Simulación con mejora completada (guardada en sesión).')
 
         # Si hay resultado optimizado, mostrar comparación básica
+        # ----- comparacion rapida tras la mejora -----
         if 'df_resultados_opt' in st.session_state:
             st.markdown('---')
             st.markdown('**Comparación Rápida: Antes vs Después (simulación actual)**')
@@ -1395,8 +1457,9 @@ def render_dashboard(
             fig_cmp.update_layout(barmode='group', paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', font=dict(color='#d4d4d8'))
             st.plotly_chart(fig_cmp, use_container_width=True)
 
-    # ── TAB 8 ─────────────────────────────────────────────────────────────────
+    # ----- comparacion antes vs despues -----
     with tabs[8]:
+        # ----- contexto comparativo -----
         st.markdown(
             """
             <div class="panel-card">
@@ -1408,7 +1471,7 @@ def render_dashboard(
         )
         st.markdown("")
 
-        # If an optimized simulation exists in session, prefer real before/after comparison
+        # ----- comparacion usando simulacion optimizada -----
         if 'df_resultados_opt' in st.session_state and 'df_visitas_opt' in st.session_state:
             df_before = df_resultados
             df_vis_before = df_visitas
@@ -1427,6 +1490,7 @@ def render_dashboard(
             er = summary["error_rate"]
             ar = summary["abandonment_rate"]
 
+        # ----- gauge y tabla comparativa -----
         cp1, cp2 = st.columns(2)
         with cp1:
             # Use actual after values if available
@@ -1480,6 +1544,7 @@ def render_dashboard(
                 }
             st.dataframe(pd.DataFrame(comp_data), use_container_width=True, hide_index=True)
 
+        # ----- barras comparativas finales -----
         fig_cb = go.Figure()
         if 'df_resultados_opt' in st.session_state:
             fig_cb.add_trace(go.Bar(x=["Éxito","Error","Abandono"], y=[sr,er,ar], name="Antes", marker_color="#b0a8bf", text=[f"{sr:.0f}%",f"{er:.0f}%",f"{ar:.0f}%"], textposition="outside"))
@@ -1506,21 +1571,23 @@ def render_dashboard(
         st.plotly_chart(fig_cb, use_container_width=True)
 
 
-# ── Main ──────────────────────────────────────────────────────────────────────
+# ----- flujo principal -----
 def main() -> None:
+    # ----- carga inicial de recursos -----
     inject_styles()
     assets = load_markov_assets()
     initial_state(assets)
 
     num_usuarios, max_pasos, estado_inicial, iniciar, _, show_codes = render_sidebar(assets)
 
+    # ----- ejecucion manual desde sidebar -----
     if iniciar:
         with st.spinner("Ejecutando simulación..."):
             perform_simulation(assets, num_usuarios, max_pasos, estado_inicial)
         st.success(f"Simulación completada: {num_usuarios} usuarios procesados")
         st.rerun()
 
-    # Decide whether to use preview results or the full simulation
+    # ----- seleccion de fuente de datos para el dashboard -----
     if st.session_state.get('use_preview_for_dashboard') and "df_resultados_preview" in st.session_state:
         df_resultados = st.session_state["df_resultados_preview"]
         df_visitas    = st.session_state["df_visitas_preview"]
