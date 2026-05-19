@@ -757,7 +757,7 @@ def render_sidebar(assets: dict) -> tuple:
         st.markdown("---")
 
         num_usuarios   = st.slider("Usuarios a simular", min_value=5,  max_value=5000, value=100, step=5)
-        max_pasos      = st.slider("Máximo de pasos",    min_value=5,  max_value=1000, value=20, step=5)
+        max_pasos      = st.slider("Máximo de pasos",    min_value=5,  max_value=100, value=20, step=5)
         estado_inicial = st.selectbox(
             "Estado inicial",
             assets["estados_iniciales_validos"],
