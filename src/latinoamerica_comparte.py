@@ -664,22 +664,22 @@ def generate_recommendations(summary: dict, df_resultados: pd.DataFrame, df_visi
     sr, er, ar = summary["success_rate"], summary["error_rate"], summary["abandonment_rate"]
     if sr >= 50:
         recs.append({"type":"success","title":"Desempeño sólido",
-            "text": "Tasa de éxito de " + str(int(sr)) + "%. Considera replicar estos patrones en otras áreas."})
+            "text": "La tasa de éxito es de " + str(int(sr)) + "%. Conviene identificar qué pasos funcionan bien y repetir esas mismas condiciones en otras partes del proceso."})
     if er >= 25:
         recs.append({"type":"error","title":"Revisar puntos de error",
-            "text": "Errores en " + str(int(er)) + "% de casos. Enfócate en validaciones y manejo de excepciones."})
+            "text": "Se presentan errores en " + str(int(er)) + "% de los casos. Conviene revisar qué dato, acción o pantalla está fallando y mostrar instrucciones claras para que la persona pueda corregirlo."})
     if ar >= 20:
         recs.append({"type":"warning","title":"Reducir abandonos",
-            "text": "Abandono de " + str(int(ar)) + "%. Simplifica el flujo y mejora el feedback visual."})
+            "text": "El " + str(int(ar)) + "% de los usuarios abandona el proceso. Se recomienda acortar pasos, hacer más claras las instrucciones y confirmar visualmente que cada avance fue guardado."})
     # ----- hallazgos puntuales -----
     error_top = df_resultados[df_resultados["categoria_final"]=="Error"]["resultado"].value_counts().head(1)
     if not error_top.empty:
         recs.append({"type":"error","title":"Cuello de botella: " + error_top.index[0],
-            "text": "Este estado aparece " + str(error_top.values[0]) + " veces en errores. Prioriza su revisión."})
+            "text": "Este problema aparece " + str(error_top.values[0]) + " veces dentro de los errores. Es un buen punto para intervenir primero porque está frenando una parte importante del recorrido."})
     most_visited = df_visitas["estado_nombre"].value_counts().head(1)
     if not most_visited.empty:
         recs.append({"type":"success","title":"Zona de alto tráfico detectada",
-            "text": most_visited.index[0] + " es un buen candidato para mejorar la experiencia."})
+            "text": most_visited.index[0] + " es una etapa por la que pasa mucha gente. Si se mejora esa parte, el impacto puede notarse en una gran cantidad de usuarios."})
     return recs[:4]
 
 
@@ -699,27 +699,33 @@ def generate_critical_state_recommendation(
         title = "Reforzar autenticación y permisos"
         text = (
             f"El estado {crit_code} - {crit_name} afecta a {affected_users} usuarios "
-            f"({affected_pct:.1f}% del total). Conviene revisar validaciones de acceso, "
-            "mensajes de error y rutas de recuperación para evitar abandonos tempranos."
+            f"({affected_pct:.1f}% del total). Se recomienda verificar credenciales, roles "
+            "y permisos antes de enviar al usuario a este punto; mostrar mensajes claros "
+            "que indiquen si el problema es usuario, contraseña o autorización; y ofrecer "
+            "una salida visible para recuperar contraseña, reintentar o contactar soporte. "
+            "Esto ayuda a reducir abandonos tempranos y recuperar usuarios dentro del flujo."
         )
     elif crit_name in {"Error al registrar usuario", "Error al gestionar contenido", "Respuesta del chatbot no disponible"}:
         title = "Reducir fricción en el flujo crítico"
         text = (
             f"El estado {crit_code} - {crit_name} aparece en {visits_crit.shape[0]} recorridos. "
-            "Prioriza validaciones de formulario, manejo de excepciones y retroalimentación "
-            "clara para que el usuario pueda continuar sin bloquearse."
+            "Se recomienda revisar qué dato o acción dispara el fallo, avisar con claridad qué "
+            "debe corregirse y permitir que la persona continúe o reintente sin empezar todo "
+            "de nuevo."
         )
     elif crit_name in {"Sesión cerrada manualmente", "Sesión cerrada por inactividad"}:
         title = "Disminuir abandono de sesión"
         text = (
             f"El estado {crit_code} - {crit_name} indica salida del flujo en {affected_pct:.1f}% de los usuarios. "
-            "Reduce pasos innecesarios, mejora el guardado automático y refuerza los avisos de actividad."
+            "Se recomienda reducir pasos innecesarios, guardar el avance automáticamente y avisar "
+            "antes de que la sesión termine para que la persona no pierda su progreso."
         )
     else:
         title = "Atender el punto crítico detectado"
         text = (
             f"El estado {crit_code} - {crit_name} concentra {affected_users} usuarios afectados. "
-            "Revisa transiciones previas, mensajes de guía y controles de salida para reducir su impacto."
+            "Se recomienda revisar qué ocurre justo antes de este punto, explicar mejor qué debe "
+            "hacer el usuario y ofrecer una salida clara para evitar que abandone el proceso."
         )
 
     return {
